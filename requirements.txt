@@ -12,4 +12,4 @@ matplotlib
 pillow
 flask
 flask-login
-flask_sqlalchemy
+flask-sqlalchemy
