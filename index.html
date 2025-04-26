@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriFlowNDVI - Agricultural Vegetation Health Monitoring</title>
+  
+  <!-- Bootstrap CSS (Replit dark theme) -->
+  <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+  
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Chart.js for visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Our custom CSS -->
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">
+        <i class="fas fa-leaf text-success me-2"></i> AgriFlowNDVI
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" href="#">Dashboard</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#about">About NDVI</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid">
+    <div class="row mb-4">
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Field Selection Map</h5>
+            <div class="btn-group" role="group">
+              <button id="drawPolygonBtn" class="btn btn-sm btn-outline-primary" title="Draw Polygon">
+                <i class="fas fa-draw-polygon"></i> Draw Field
+              </button>
+              <button id="resetMapBtn" class="btn btn-sm btn-outline-secondary" title="Reset Map">
+                <i class="fas fa-undo"></i> Reset
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <div id="map"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card mb-3">
+          <div class="card-header">
+            <h5>Analysis Controls</h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label for="datePicker" class="form-label">Select Date</label>
+              <select id="datePicker" class="form-select">
+                <option value="2025-01-24">24 Jan'25</option>
+                <option value="2025-02-03">03 Feb'25</option>
+                <option value="2025-02-08">08 Feb'25</option>
+                <option value="2025-02-13">13 Feb'25</option>
+                <option value="2025-03-15">15 Mar'25</option>
+                <option value="2025-03-25">25 Mar'25</option>
+                <option value="2025-03-27">27 Mar'25</option>
+                <option value="2025-03-30">30 Mar'25</option>
+                <option value="2025-04-09">09 Apr'25</option>
+                <option value="2025-04-16">16 Apr'25</option>
+                <option value="2025-04-24">24 Apr'25</option>
+                <option value="2025-04-26" selected>26 Apr'25</option>
+              </select>
+            </div>
+            <div class="d-grid gap-2">
+              <button id="loadNdviBtn" class="btn btn-primary" onclick="loadNDVI()">
+                <i class="fas fa-satellite-dish me-2"></i> Load NDVI Data
+              </button>
+              <button id="downloadCsvBtn" class="btn btn-success" onclick="downloadCSV()" disabled>
+                <i class="fas fa-file-csv me-2"></i> Export to CSV
+              </button>
+            </div>
+            <div id="loadingIndicator" class="text-center mt-3 d-none">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2">Processing satellite data...</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-header">
+            <h5>NDVI Analysis Results</h5>
+          </div>
+          <div class="card-body">
+            <div id="noDataMessage" class="text-center p-4">
+              <i class="fas fa-info-circle fa-2x mb-3 text-info"></i>
+              <p>Draw a field boundary and load NDVI data to see analysis results</p>
+            </div>
+            
+            <div id="ndviResults" class="d-none">
+              <div class="row">
+                <div class="col-6">
+                  <div class="info-box text-center mb-3">
+                    <small class="text-muted">Mean NDVI</small>
+                    <h3 id="meanNDVI" class="mb-0">-</h3>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="info-box text-center mb-3">
+                    <small class="text-muted">Median NDVI</small>
+                    <h3 id="medianNDVI" class="mb-0">-</h3>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-6">
+                  <div class="info-box text-center">
+                    <small class="text-muted">Min NDVI</small>
+                    <h5 id="minNDVI" class="mb-0">-</h5>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="info-box text-center">
+                    <small class="text-muted">Max NDVI</small>
+                    <h5 id="maxNDVI" class="mb-0">-</h5>
+                  </div>
+                </div>
+              </div>
+              
+              <hr>
+              
+              <h6>Vegetation Health Distribution</h6>
+              <canvas id="ndviDistributionChart" height="180"></canvas>
+              
+              <div class="mt-3">
+                <div class="d-flex justify-content-between">
+                  <small class="text-danger">Poor</small>
+                  <small class="text-warning">Moderate</small>
+                  <small class="text-success">Excellent</small>
+                </div>
+                <div class="progress">
+                  <div id="lowVegBar" class="progress-bar bg-danger" role="progressbar" style="width: 0%"></div>
+                  <div id="modVegBar" class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
+                  <div id="highVegBar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row mb-5" id="about">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h5>About NDVI - Normalized Difference Vegetation Index</h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-8">
+                <p>NDVI (Normalized Difference Vegetation Index) is a simple graphical indicator that can be used to analyze remote sensing measurements, typically from satellite imagery, and assess whether the target being observed contains live green vegetation or not.</p>
+                
+                <h6>NDVI Values Interpretation:</h6>
+                <ul>
+                  <li><strong>-1 to 0.1:</strong> Water, barren areas, clouds, snow</li>
+                  <li><strong>0.1 to 0.3:</strong> Shrubs and grassland or senescing crops</li>
+                  <li><strong>0.3 to 0.6:</strong> Moderate to high vegetation (cropland)</li>
+                  <li><strong>0.6 to 1.0:</strong> Dense vegetation (forest or crops at peak growth stage)</li>
+                </ul>
+                
+                <p>NDVI is calculated by comparing the visible and near-infrared sunlight reflected by vegetation, using the formula: <code>NDVI = (NIR - RED) / (NIR + RED)</code></p>
+              </div>
+              <div class="col-md-4">
+                <div class="card bg-dark">
+                  <div class="card-body p-0">
+                    <div class="ndvi-scale">
+                      <div class="ndvi-scale-gradient"></div>
+                      <div class="ndvi-scale-labels">
+                        <div>1.0</div>
+                        <div>0.5</div>
+                        <div>0.0</div>
+                        <div>-0.5</div>
+                        <div>-1.0</div>
+                      </div>
+                      <div class="ndvi-scale-desc">
+                        <div>Dense vegetation</div>
+                        <div>Moderate vegetation</div>
+                        <div>Sparse vegetation</div>
+                        <div>Barren soil</div>
+                        <div>Water, artificial surfaces</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-dark text-light py-4 mt-5">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-6">
+          <h5><i class="fas fa-leaf text-success me-2"></i> AgriFlowNDVI</h5>
+          <p>A satellite-based agricultural monitoring tool for vegetation health analysis</p>
+        </div>
+        <div class="col-md-6 text-md-end">
+          <p>Powered by Sentinel-2 satellite data</p>
+          <p><small>Using near-infrared and red bands for NDVI calculation</small></p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+  
+  <!-- Bootstrap JS Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Our custom JS -->
+  <script src="/static/scripts.js"></script>
+</body>
+</html>
